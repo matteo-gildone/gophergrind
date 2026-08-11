@@ -73,9 +73,9 @@ attacker hits if attackerRoll > defenderRoll
 
 On a hit, Damage applies directly. Defence is pure evasion — it does not mitigate damage on hits that land, it only
 affects whether the hit lands at all. Swing order is chosen randomly at the start of each fight; fighters then
-alternate, and a round is a single attack. The fight ends when a combatant reaches 0 HP, or a cap of 10 rounds (10
-swings) is reached — at which point the higher remaining HP percentage wins. On an exact HP% tie the defender wins;
-because the player is always the attacker, the player loses draws.
+alternate. A round is one exchange — each fighter swings once — so the fight caps at 10 rounds, i.e. 20 swings. The
+fight ends when a combatant reaches 0 HP, or the cap is reached — at which point the higher remaining HP percentage
+(HP/MaxHP) wins; On an exact HP% tie the opponent wins — the player, as fixed attacker, loses draws.
 
 See internal/combat/combat_test.go for the precise API contract. Randomness enters through an injected RNG interface (a
 small subset of *rand.Rand), rolls are d20, and two rolls are consumed per swing (attacker then defender).
@@ -122,10 +122,9 @@ small subset of *rand.Rand), rolls are d20, and two rolls are consumed per swing
 
 ## Current build order
 
-1. Combat resolution — internal/combat/combat_test.go exists but is an empty stub; write the test-first suite first,
-   then implement Fight against it
-2. Character (creation quiz, path tracking, leveling) — next up
-3. Cards & leveling (universal → path-tagged transition, localization- style flavor text)
+1. Combat resolution - DONE — internal/combat/combat_test.go exists
+2. Character — DONE. New (quiz scoring), LevelUp, one-way LockPath; tests in internal/character/character_test.go.
+3. Cards & leveling (universal → path-tagged transition, localization- style flavor text) - Next up
 4. Items & shop
 5. Dungeons
 6. Job
@@ -138,5 +137,5 @@ small subset of *rand.Rand), rolls are d20, and two rolls are consumed per swing
 ## Testing
 
 Table-driven tests with `t.Run`, per Go convention. Combat and any other nondeterministic logic should use an injected
-fake RNG so fight outcomes are deterministic and scriptable. The combat suite will introduce the reference fakeRNG — a
-scripted []int cursor implementing RNG — which later packages should follow.
+fake RNG so fight outcomes are deterministic and scriptable. The combat suite introduces the reference fakeRNG
+(internal/combat/combat_test.go) — a scripted []int cursor implementing RNG — which later packages follow.
