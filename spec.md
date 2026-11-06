@@ -86,12 +86,13 @@ small subset of *rand.Rand), rolls are d20, and two rolls are consumed per swing
   each level presents a few cards, player picks one.
 - **No respec.** Every choice is permanent — characters are like git branches with no reset. This applies to path
   selection too (see below).
-- Levels 1-2: only universal cards (plain Accuracy/Damage/Defence/HP bumps), no path tagging. The character is
+- Levels 1-3: only universal cards (plain Accuracy/Damage/Defence/HP bumps), no path tagging. The character is
   narratively "nobody" at this stage, regardless of what the creation quiz set their stats to.
-- From level 3 onward, path-tagged cards start appearing in the offer pool alongside universal ones. The moment a player
-  picks a path-tagged card, that path locks in **permanently** — no crossing over to another path afterward, ever. A
-  character's starting quiz lean and their eventual path are independent and can diverge (e.g. a full-Defence starting
-  gopher can still become a Ranger).
+- At level 4, the player chooses Fighter, Ranger, or Mage instead of receiving a card offer. This choice permanently
+  locks the character’s path and grants +10 to its associated stat: Defence for Fighter, Accuracy for Ranger, or Damage
+  for Mage. There is no respec or crossover. Three-card offers resume from level 5; paths change card names and
+  descriptions, not their effects. The creation quiz sets starting stats independently, so a Defence-heavy gopher can
+  still choose Ranger.
 - Three paths, one per combat stat:
 - **Fighter** = Defence (the one who stands and takes it)
 - **Ranger** = Accuracy (the one who doesn't miss)
