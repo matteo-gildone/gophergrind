@@ -4,7 +4,10 @@
 // XP curve live in other packages; character only holds and guards state.
 package character
 
-import "fmt"
+import (
+	"fmt"
+	"gophergrind/internal/card"
+)
 
 // Stat identifies which of the three combat stats a quiz answer feeds.
 type Stat int
@@ -15,7 +18,7 @@ const (
 	Defence
 )
 
-// Path is the combat career a character locks into from level 3 onward.
+// Path is the combat career a character locks into from level 4 onward.
 // A character starts as PathNone and, once a path is locked, can never
 // switch to another.
 type Path int
@@ -39,7 +42,7 @@ const (
 // StartingHP is the fixed HP every character begins with, untouched by the quiz.
 const StartingHP = 50
 const statIncrease = 10
-const pathUnlockLevel = 3
+const pathUnlockLevel = 4
 
 // Stats holds a character's three combat stats as flat point values.
 type Stats struct{ Accuracy, Damage, Defence int }
@@ -108,5 +111,22 @@ func (c *Character) LockPath(p Path) error {
 	}
 
 	c.Path = p
+	return nil
+}
+
+func (c *Character) ApplyEffect(e card.Effect) error {
+	switch e.Target {
+	case card.Accuracy:
+		c.Stats.Accuracy += e.Amount
+	case card.Damage:
+		c.Stats.Damage += e.Amount
+	case card.Defence:
+		c.Stats.Defence += e.Amount
+	case card.HP:
+		c.HP += e.Amount
+		c.MaxHP += e.Amount
+	default:
+		return fmt.Errorf("invalid card effect target: %d", e.Target)
+	}
 	return nil
 }

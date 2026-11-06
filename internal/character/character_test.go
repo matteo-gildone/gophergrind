@@ -1,6 +1,7 @@
 package character_test
 
 import (
+	"gophergrind/internal/card"
 	"testing"
 
 	"gophergrind/internal/character"
@@ -144,21 +145,21 @@ func TestLockPath(t *testing.T) {
 		return c
 	}
 
-	t.Run("rejects locking below level 3", func(t *testing.T) {
+	t.Run("rejects locking below level 4", func(t *testing.T) {
 		t.Parallel()
-		c := atLevel(t, 2, character.PathNone)
+		c := atLevel(t, 3, character.PathNone)
 
 		if err := c.LockPath(character.PathMage); err == nil {
-			t.Error("LockPath at level 2 returned nil error, want error")
+			t.Error("LockPath at level 3 returned nil error, want error")
 		}
 		if c.Path != character.PathNone {
 			t.Errorf("Path = %v after rejected lock, want PathNone", c.Path)
 		}
 	})
 
-	t.Run("locks a path from level 3", func(t *testing.T) {
+	t.Run("locks a path from level 4", func(t *testing.T) {
 		t.Parallel()
-		c := atLevel(t, 3, character.PathNone)
+		c := atLevel(t, 4, character.PathNone)
 
 		if err := c.LockPath(character.PathMage); err != nil {
 			t.Fatalf("LockPath returned error: %v", err)
@@ -170,7 +171,7 @@ func TestLockPath(t *testing.T) {
 
 	t.Run("re-locking the same path is idempotent", func(t *testing.T) {
 		t.Parallel()
-		c := atLevel(t, 3, character.PathMage)
+		c := atLevel(t, 4, character.PathMage)
 
 		if err := c.LockPath(character.PathMage); err != nil {
 			t.Errorf("re-locking same path returned error: %v", err)
@@ -182,7 +183,7 @@ func TestLockPath(t *testing.T) {
 
 	t.Run("rejects crossing to a different path", func(t *testing.T) {
 		t.Parallel()
-		c := atLevel(t, 3, character.PathMage)
+		c := atLevel(t, 4, character.PathMage)
 
 		if err := c.LockPath(character.PathRanger); err == nil {
 			t.Error("crossing path returned nil error, want error")
@@ -194,7 +195,7 @@ func TestLockPath(t *testing.T) {
 
 	t.Run("rejects locking PathNone", func(t *testing.T) {
 		t.Parallel()
-		c := atLevel(t, 3, character.PathNone)
+		c := atLevel(t, 4, character.PathNone)
 
 		if err := c.LockPath(character.PathNone); err == nil {
 			t.Error("LockPath(PathNone) returned nil error, want error")
@@ -213,5 +214,116 @@ func TestLevelUp(t *testing.T) {
 	c.LevelUp()
 	if c.Level != 2 {
 		t.Errorf("Level after one LevelUp = %d, want 2", c.Level)
+	}
+}
+
+func TestApplyEffect(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		effect card.Effect
+		want   character.Character
+	}{
+		{
+			name: "apply HP card", effect: card.Effect{Target: card.HP, Amount: 10}, want: character.Character{
+				Name:  "gopher",
+				Mode:  character.Softcore,
+				Level: 1,
+				HP:    60,
+				MaxHP: 60,
+				Stats: character.Stats{
+					Accuracy: 10,
+					Damage:   10,
+					Defence:  10,
+				},
+				Path: character.PathNone,
+			},
+		},
+		{
+			name: "apply Accuracy card", effect: card.Effect{Target: card.Accuracy, Amount: 2}, want: character.Character{
+				Name:  "gopher",
+				Mode:  character.Softcore,
+				Level: 1,
+				HP:    50,
+				MaxHP: 50,
+				Stats: character.Stats{
+					Accuracy: 12,
+					Damage:   10,
+					Defence:  10,
+				},
+				Path: character.PathNone,
+			},
+		},
+		{
+			name: "apply Defence card", effect: card.Effect{Target: card.Defence, Amount: 2}, want: character.Character{
+				Name:  "gopher",
+				Mode:  character.Softcore,
+				Level: 1,
+				HP:    50,
+				MaxHP: 50,
+				Stats: character.Stats{
+					Accuracy: 10,
+					Damage:   10,
+					Defence:  12,
+				},
+				Path: character.PathNone,
+			},
+		},
+		{
+			name: "apply Damage card", effect: card.Effect{Target: card.Damage, Amount: 2}, want: character.Character{
+				Name:  "gopher",
+				Mode:  character.Softcore,
+				Level: 1,
+				HP:    50,
+				MaxHP: 50,
+				Stats: character.Stats{
+					Accuracy: 10,
+					Damage:   12,
+					Defence:  10,
+				},
+				Path: character.PathNone,
+			},
+		},
+	}
+
+	answers := [3]character.Stat{character.Accuracy, character.Damage, character.Defence}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			c, err := character.New("gopher", character.Softcore, answers)
+			if err != nil {
+				t.Fatalf("New returned error: %v", err)
+			}
+
+			err = c.ApplyEffect(tc.effect)
+			if err != nil {
+				t.Fatalf("ApplyEffect(Effect) returned error: %v", err)
+			}
+
+			if c != tc.want {
+				t.Errorf("character = %+v, want %+v", c, tc.want)
+			}
+		})
+	}
+}
+
+func TestApplyEffect_InvalidTarget(t *testing.T) {
+	t.Parallel()
+	answers := [3]character.Stat{character.Accuracy, character.Damage, character.Defence}
+	c, err := character.New("gopher", character.Softcore, answers)
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+	want := c
+	err = c.ApplyEffect(card.Effect{Target: 99, Amount: 2})
+
+	if err == nil {
+		t.Error("ApplyEffect(invalid target) returned nil error, want error")
+	}
+
+	if c != want {
+		t.Errorf("character = %+v, want %+v", c, want)
 	}
 }
