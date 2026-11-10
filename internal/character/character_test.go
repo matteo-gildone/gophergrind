@@ -123,85 +123,6 @@ func TestNew_RejectsInvalidAnswer(t *testing.T) {
 	}
 }
 
-func TestLockPath(t *testing.T) {
-	t.Parallel()
-
-	// atLevel builds a character advanced to the given level via LevelUp.
-	atLevel := func(t *testing.T, level int, start character.Path) character.Character {
-		t.Helper()
-		answers := [3]character.Stat{character.Accuracy, character.Damage, character.Defence}
-		c, err := character.New("gopher", character.Softcore, answers)
-		if err != nil {
-			t.Fatalf("New returned error: %v", err)
-		}
-		for c.Level < level {
-			c.LevelUp()
-		}
-		if start != character.PathNone {
-			if err := c.LockPath(start); err != nil {
-				t.Fatalf("locking starting path %v: %v", start, err)
-			}
-		}
-		return c
-	}
-
-	t.Run("rejects locking below level 4", func(t *testing.T) {
-		t.Parallel()
-		c := atLevel(t, 3, character.PathNone)
-
-		if err := c.LockPath(character.PathMage); err == nil {
-			t.Error("LockPath at level 3 returned nil error, want error")
-		}
-		if c.Path != character.PathNone {
-			t.Errorf("Path = %v after rejected lock, want PathNone", c.Path)
-		}
-	})
-
-	t.Run("locks a path from level 4", func(t *testing.T) {
-		t.Parallel()
-		c := atLevel(t, 4, character.PathNone)
-
-		if err := c.LockPath(character.PathMage); err != nil {
-			t.Fatalf("LockPath returned error: %v", err)
-		}
-		if c.Path != character.PathMage {
-			t.Errorf("Path = %v, want PathMage", c.Path)
-		}
-	})
-
-	t.Run("re-locking the same path is idempotent", func(t *testing.T) {
-		t.Parallel()
-		c := atLevel(t, 4, character.PathMage)
-
-		if err := c.LockPath(character.PathMage); err != nil {
-			t.Errorf("re-locking same path returned error: %v", err)
-		}
-		if c.Path != character.PathMage {
-			t.Errorf("Path = %v, want PathMage", c.Path)
-		}
-	})
-
-	t.Run("rejects crossing to a different path", func(t *testing.T) {
-		t.Parallel()
-		c := atLevel(t, 4, character.PathMage)
-
-		if err := c.LockPath(character.PathRanger); err == nil {
-			t.Error("crossing path returned nil error, want error")
-		}
-		if c.Path != character.PathMage {
-			t.Errorf("Path = %v after rejected cross, want PathMage (unchanged)", c.Path)
-		}
-	})
-
-	t.Run("rejects locking PathNone", func(t *testing.T) {
-		t.Parallel()
-		c := atLevel(t, 4, character.PathNone)
-
-		if err := c.LockPath(character.PathNone); err == nil {
-			t.Error("LockPath(PathNone) returned nil error, want error")
-		}
-	})
-}
 func TestLevelUp(t *testing.T) {
 	t.Parallel()
 
@@ -211,9 +132,27 @@ func TestLevelUp(t *testing.T) {
 		t.Fatalf("New returned error: %v", err)
 	}
 
-	c.LevelUp()
+	err = c.LevelUp()
+	if err != nil {
+		t.Fatalf("LevelUp returned error: %v", err)
+	}
 	if c.Level != 2 {
 		t.Errorf("Level after one LevelUp = %d, want 2", c.Level)
+	}
+}
+
+func TestLevelUp_RequiresPathAtLevel3(t *testing.T) {
+	t.Parallel()
+
+	c := atLevel(t, 3)
+	want := c
+
+	err := c.LevelUp()
+	if err == nil {
+		t.Fatal("expected error got nil")
+	}
+	if c != want {
+		t.Errorf("character = %+v, want %+v", c, want)
 	}
 }
 
@@ -326,4 +265,167 @@ func TestApplyEffect_InvalidTarget(t *testing.T) {
 	if c != want {
 		t.Errorf("character = %+v, want %+v", c, want)
 	}
+}
+
+func TestLevellingFlow(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		wantPath character.Path
+		want     character.Character
+	}{
+		{
+			name:     "pick ranger path",
+			wantPath: character.PathRanger,
+			want: character.Character{
+				Name:  "gopher",
+				Mode:  character.Softcore,
+				Level: 4,
+				HP:    50,
+				MaxHP: 50,
+				Stats: character.Stats{
+					Accuracy: 20,
+					Damage:   10,
+					Defence:  10,
+				},
+				Path: character.PathRanger,
+			},
+		},
+		{
+			name:     "pick fighter path",
+			wantPath: character.PathFighter,
+			want: character.Character{
+				Name:  "gopher",
+				Mode:  character.Softcore,
+				Level: 4,
+				HP:    50,
+				MaxHP: 50,
+				Stats: character.Stats{
+					Accuracy: 10,
+					Damage:   10,
+					Defence:  20,
+				},
+				Path: character.PathFighter,
+			},
+		},
+		{
+			name:     "pick mage path",
+			wantPath: character.PathMage,
+			want: character.Character{
+				Name:  "gopher",
+				Mode:  character.Softcore,
+				Level: 4,
+				HP:    50,
+				MaxHP: 50,
+				Stats: character.Stats{
+					Accuracy: 10,
+					Damage:   20,
+					Defence:  10,
+				},
+				Path: character.PathMage,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			c := atLevel(t, 3)
+			if err := c.ChoosePath(tc.wantPath); err != nil {
+				t.Fatalf("locking starting path %v: %v", tc.wantPath, err)
+			}
+
+			err := c.LevelUp()
+			if err != nil {
+				t.Fatalf("LevelUp returned error: %v", err)
+			}
+
+			if c != tc.want {
+				t.Errorf("character = %+v, want %+v", c, tc.want)
+			}
+		})
+	}
+}
+
+func TestChoosePath(t *testing.T) {
+	t.Parallel()
+
+	t.Run("rejects locking below level 3", func(t *testing.T) {
+		t.Parallel()
+		c := atLevel(t, 2)
+		want := c
+
+		if err := c.ChoosePath(character.PathMage); err == nil {
+			t.Fatal("expected error got nil")
+		}
+
+		if c != want {
+			t.Errorf("character = %+v, want %+v", c, want)
+		}
+	})
+
+	t.Run("locking no path is not possible", func(t *testing.T) {
+		t.Parallel()
+		c := atLevel(t, 3)
+		want := c
+
+		if err := c.ChoosePath(character.PathNone); err == nil {
+			t.Error("locking no path should return error, got nil")
+		}
+
+		if c != want {
+			t.Errorf("character = %+v, want %+v", c, want)
+		}
+	})
+
+	t.Run("rejects crossing to a different path", func(t *testing.T) {
+		t.Parallel()
+		c := atLevel(t, 3)
+		if err := c.ChoosePath(character.PathMage); err != nil {
+			t.Fatalf("initial Mage choice returned error: %v", err)
+		}
+
+		want := c
+
+		if err := c.ChoosePath(character.PathRanger); err == nil {
+			t.Error("choosing Ranger after Mage returned nil error, want error")
+		}
+
+		if c != want {
+			t.Errorf("character = %+v, want %+v", c, want)
+		}
+	})
+
+	t.Run("rejects locking to invalid path", func(t *testing.T) {
+		t.Parallel()
+		c := atLevel(t, 3)
+		want := c
+
+		if err := c.ChoosePath(character.Path(90)); err == nil {
+			t.Fatal("expected error got nil")
+		}
+
+		if c != want {
+			t.Errorf("character = %+v, want %+v", c, want)
+		}
+	})
+
+}
+
+// atLevel builds a character advanced to the given level via LevelUp.
+func atLevel(t *testing.T, level int) character.Character {
+	t.Helper()
+	answers := [3]character.Stat{character.Accuracy, character.Damage, character.Defence}
+	c, err := character.New("gopher", character.Softcore, answers)
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+	for c.Level < level {
+		err = c.LevelUp()
+		if err != nil {
+			t.Fatalf("LevelUp returned error: %v", err)
+		}
+	}
+	return c
 }

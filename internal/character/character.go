@@ -90,27 +90,11 @@ func New(name string, mode Mode, answers [3]Stat) (Character, error) {
 
 // LevelUp advances the character by one level. It only changes the level
 // counter; deciding when to level and offering cards is the caller's job.
-func (c *Character) LevelUp() {
-	c.Level++
-}
-
-// LockPath permanently sets the character's path. It errors if the
-// character is below the path-unlock level, if p is PathNone, or if a
-// different path is already locked. Re-locking the current path is a
-// no-op and returns nil.
-func (c *Character) LockPath(p Path) error {
-	switch {
-	case c.Level < pathUnlockLevel:
-		return fmt.Errorf("locking path too early")
-	case c.Path == p && p != PathNone:
-		return nil
-	case p == PathNone:
-		return fmt.Errorf("you must pick a path")
-	case c.Path != PathNone:
-		return fmt.Errorf("you can't respec path")
+func (c *Character) LevelUp() error {
+	if c.Level == 3 && c.Path == PathNone {
+		return fmt.Errorf("choose a path before advancing to level 4")
 	}
-
-	c.Path = p
+	c.Level++
 	return nil
 }
 
@@ -128,5 +112,25 @@ func (c *Character) ApplyEffect(e card.Effect) error {
 	default:
 		return fmt.Errorf("invalid card effect target: %d", e.Target)
 	}
+	return nil
+}
+
+func (c *Character) ChoosePath(p Path) error {
+	if c.Level != 3 || c.Path != PathNone {
+		return fmt.Errorf("path can only be chosen when advancing to level 4")
+	}
+
+	switch p {
+	case PathFighter:
+		c.Stats.Defence += 10
+	case PathRanger:
+		c.Stats.Accuracy += 10
+	case PathMage:
+		c.Stats.Damage += 10
+	default:
+		return fmt.Errorf("invalid path: %d", p)
+	}
+
+	c.Path = p
 	return nil
 }
