@@ -258,7 +258,7 @@ func (f *fakeRNG) Intn(n int) int {
 // from roll(i) for swing i.
 func capScript(order, swings int, roll func(i int) (int, int)) []int {
 	s := []int{order}
-	for i := 0; i < swings; i++ {
+	for i := range swings {
 		a, d := roll(i)
 		s = append(s, a, d)
 	}
